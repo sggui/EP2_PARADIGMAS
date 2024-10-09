@@ -1,4 +1,4 @@
-Order para execução:
+Ordem para execução:
 
 Abra um terminal e rode:
 go run server.go
