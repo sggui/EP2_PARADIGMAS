@@ -1,3 +1,5 @@
+Grupo: Guilherme Santos Guimarães e Gustavo Piroupo Neumann
+
 Ordem para execução:
 
 Abra um terminal e rode:
