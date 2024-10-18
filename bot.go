@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 	"strings"
+	"time"
 )
 
 func reverse(s string) string {
@@ -19,60 +20,69 @@ func reverse(s string) string {
 }
 
 func main() {
-	conn, err := net.Dial("tcp", "localhost:3000")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer conn.Close()
+	for {
+		conn, err := net.Dial("tcp", "localhost:3000")
+		if err != nil {
+			log.Println("Erro ao conectar ao servidor:", err)
+			time.Sleep(5 * time.Second) // Esperar antes de tentar novamente
+			continue
+		}
+		// Não usar defer conn.Close() aqui
 
-	scanner := bufio.NewScanner(conn)
+		// Enviar apelido imediatamente
+		nick := "ReverseBot"
+		fmt.Fprintln(conn, nick)
+		fmt.Println("Enviado nickname:", nick)
 
-	// Ler e descartar o prompt "Enter your nickname: "
-	if scanner.Scan() {
-		// Prompt recebido, não precisamos fazer nada aqui
-	}
+		// Enviar confirmação de que é um bot
+		fmt.Fprintln(conn, "sim")
+		fmt.Println("Enviado resposta: sim")
 
-	// Enviar o apelido do bot
-	nick := "ReverseBot"
-	fmt.Fprintln(conn, nick)
+		// Canal para gerenciar I/O
+		done := make(chan struct{})
 
-	// Ler e descartar o prompt "Are you a bot? (yes/no): "
-	if scanner.Scan() {
-		// Prompt recebido, não precisamos fazer nada aqui
-	}
+		// Goroutine para ler mensagens do servidor
+		go func() {
+			scanner := bufio.NewScanner(conn)
+			for scanner.Scan() {
+				msg := scanner.Text()
+				fmt.Printf("Recebi: %s\n", msg)
 
-	// Indicar que este é um bot
-	fmt.Fprintln(conn, "yes")
+				// Verificar se a mensagem é uma mensagem privada para o bot
+				if strings.Contains(msg, "enviou no privado:") {
+					// Extrair o remetente e a mensagem
+					parts := strings.SplitN(msg, "enviou no privado:", 2)
+					if len(parts) == 2 {
+						senderInfo := strings.TrimSpace(parts[0])
+						content := strings.TrimSpace(parts[1])
 
-	// Agora podemos entrar no loop principal para receber mensagens
-	for scanner.Scan() {
-		msg := scanner.Text()
-		fmt.Printf("Received: %s\n", msg)
+						// Extrair o nome do remetente
+						senderParts := strings.Split(senderInfo, "@")
+						if len(senderParts) == 2 {
+							senderNick := strings.TrimSpace(senderParts[1])
 
-		// Verificar se a mensagem é direcionada ao bot
-		if strings.Contains(msg, "@"+nick) {
-			// Extrair a mensagem
-			parts := strings.SplitN(msg, ":", 2)
-			if len(parts) == 2 {
-				originalMsg := strings.TrimSpace(parts[1])
+							// Inverter a mensagem
+							reversedMsg := reverse(content)
 
-				// Inverter a mensagem
-				reversedMsg := reverse(originalMsg)
-
-				// Obter o apelido do remetente
-				senderParts := strings.Split(parts[0], "@")
-				if len(senderParts) >= 2 {
-					senderNick := strings.TrimSpace(senderParts[1])
-
-					// Enviar a resposta privada
-					response := fmt.Sprintf("\\msg @%s %s", senderNick, reversedMsg)
-					fmt.Fprintln(conn, response)
+							// Enviar a resposta como mensagem privada
+							response := fmt.Sprintf("\\msg @%s %s", senderNick, reversedMsg)
+							fmt.Fprintln(conn, response)
+							fmt.Println("Enviado resposta:", response)
+						}
+					}
 				}
 			}
-		}
-	}
+			if err := scanner.Err(); err != nil {
+				log.Println("Erro na leitura do servidor:", err)
+			}
+			close(done)
+		}()
 
-	if err := scanner.Err(); err != nil {
-		log.Println("Erro ao ler do servidor:", err)
+		// Esperar até que a goroutine termine
+		<-done
+
+		// Fechar a conexão antes de tentar novamente
+		conn.Close()
+		time.Sleep(5 * time.Second) // Esperar antes de tentar reconectar
 	}
 }
