@@ -16,17 +16,14 @@ func main() {
 	}
 	defer conn.Close()
 
-	// Get nickname
 	fmt.Print("Informe seu nome de exibição: ")
 	reader := bufio.NewReader(os.Stdin)
 	nick, _ := reader.ReadString('\n')
 	nick = strings.TrimSpace(nick)
 	conn.Write([]byte(nick + "\n"))
 
-	// Indicate that this is not a bot
 	conn.Write([]byte("no\n"))
 
-	// Channels to handle I/O
 	done := make(chan struct{})
 
 	go func() {
@@ -37,7 +34,6 @@ func main() {
 		close(done)
 	}()
 
-	// Read input from stdin and send to server
 	inputScanner := bufio.NewScanner(os.Stdin)
 	for inputScanner.Scan() {
 		text := inputScanner.Text()
