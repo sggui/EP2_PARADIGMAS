@@ -8,7 +8,6 @@ import (
 	"strings"
 )
 
-// Client represents a connected user or bot
 type Client struct {
 	Nick     string
 	Channel  chan string
@@ -17,7 +16,6 @@ type Client struct {
 	Outgoing chan<- Message
 }
 
-// Message represents a message sent by a client
 type Message struct {
 	Sender  *Client
 	Content string
@@ -38,19 +36,15 @@ func broadcaster() {
 		select {
 		case msg := <-messages:
 			if msg.Private {
-				// Private message
 				targetClient, exists := nicknames[msg.Target]
 				if exists {
 					targetClient.Channel <- fmt.Sprintf("@%s enviou no privado: %s", msg.Sender.Nick, msg.Content)
-					// Log to server console
 					fmt.Printf("Mensagem privada para @%s to @%s: %s\n", msg.Sender.Nick, targetClient.Nick, msg.Content)
 				} else {
 					msg.Sender.Channel <- fmt.Sprintf("Usuário @%s não encontrado.", msg.Target)
 				}
 			} else {
-				// Public message
 				for cli := range clients {
-					// Public messages are not sent to bots
 					if !cli.IsBot {
 						cli.Channel <- fmt.Sprintf("@%s escreveu: %s", msg.Sender.Nick, msg.Content)
 					}
@@ -60,7 +54,6 @@ func broadcaster() {
 		case cli := <-entering:
 			clients[cli] = true
 			nicknames[cli.Nick] = cli
-			// Notify all clients
 			announcement := fmt.Sprintf("%s @%s acabou de entrar", func() string {
 				if cli.IsBot {
 					return "Bot"
@@ -76,7 +69,6 @@ func broadcaster() {
 			delete(clients, cli)
 			delete(nicknames, cli.Nick)
 			close(cli.Channel)
-			// Notify all clients
 			announcement := fmt.Sprintf("@%s saiu", cli.Nick)
 			for c := range clients {
 				c.Channel <- announcement
@@ -89,7 +81,6 @@ func broadcaster() {
 func handleConn(conn net.Conn) {
 	defer conn.Close()
 
-	// Read initial nickname and type (user/bot)
 	input := bufio.NewScanner(conn)
 	var nick string
 	var isBot bool
@@ -118,10 +109,8 @@ func handleConn(conn net.Conn) {
 
 	go clientWriter(client)
 
-	// Notify about new connection
 	entering <- client
 
-	// Command to change nickname
 	nickChange := func(newNick string) {
 		oldNick := client.Nick
 		client.Nick = newNick
@@ -132,11 +121,9 @@ func handleConn(conn net.Conn) {
 		}
 	}
 
-	// Handle incoming messages
 	for input.Scan() {
 		text := input.Text()
 		if strings.HasPrefix(text, "\\") {
-			// Handle commands
 			args := strings.SplitN(text, " ", 3)
 			switch args[0] {
 			case "\\changenick":
@@ -163,7 +150,6 @@ func handleConn(conn net.Conn) {
 				client.Channel <- "Comando não encontrado."
 			}
 		} else {
-			// Public message
 			messages <- Message{
 				Sender:  client,
 				Content: text,
